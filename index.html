@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Sistema de Registro de Abastecimento">
+  <link rel="icon" href="./images/logo-icon.png">
+  <title>Transportadora Talismã - Registro de Abastecimento</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="loading-screen" class="loading-screen active">
+    <div class="loading-content">
+      <div class="spinner"></div>
+      <p>Carregando dados...</p>
+    </div>
+  </div>
+
+  <div id="processing-modal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="truck-container">
+        <div class="truck">
+          <div class="truck-body"></div>
+          <div class="truck-cabin"></div>
+          <div class="truck-wheel wheel-1"></div>
+          <div class="truck-wheel wheel-2"></div>
+        </div>
+        <div class="road"></div>
+      </div>
+      <h3 id="modal-status-title">Processando...</h3>
+      <p id="modal-status-text">Aguarde um momento.</p>
+    </div>
+  </div>
+
+  <div class="container">
+    <header class="header">
+      <div class="header-content">
+        <img src="./images/logo.png" alt="Logo da Transportadora Talismã" class="logo">
+        <p class="subtitle">Registro de Abastecimento</p>
+      </div>
+      <div class="header-status">
+        <span id="connection-status" class="connection-status online" title="Status de conexão">
+          <span class="status-dot"></span>
+          <span class="status-text">Online</span>
+        </span>
+      </div>
+    </header>
+
+    <div id="status-message" class="status-message" style="display: none;"></div>
+
+    <main class="main-content">
+      <form id="fuel-form" class="fuel-form">
+        <fieldset class="form-section">
+          <legend>Informações do Veículo</legend>
+          
+          <div class="form-group">
+            <label for="motorista">Motorista <span class="required">*</span></label>
+            <select id="motorista" name="motorista" required>
+              <option value="" disabled selected>Selecione o Motorista</option>
+            </select>
+            <span class="validation-message"></span>
+          </div>
+
+          <div class="form-group">
+            <label for="veiculo">Veículo <span class="required">*</span></label>
+            <select id="veiculo" name="veiculo" required>
+              <option value="" disabled selected>Selecione o Veículo</option>
+            </select>
+            <span class="validation-message"></span>
+          </div>
+
+          <div class="form-group">
+            <label for="odometro">Odômetro Atual <span class="required">*</span></label>
+            <input 
+              id="odometro" 
+              name="odometro" 
+              type="text" 
+              placeholder="Selecione um veículo"
+              required
+            >
+            <span class="validation-message"></span>
+          </div>
+        </fieldset>
+
+        <fieldset class="form-section">
+          <legend>Dados do Abastecimento</legend>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="fornecedor">Fornecedor <span class="required">*</span></label>
+              <input 
+                id="fornecedor" 
+                name="fornecedor" 
+                type="text" 
+                placeholder="Ex: Posto ABC"
+                required
+              >
+              <span class="validation-message"></span>
+            </div>
+
+            <div class="form-group">
+              <label for="nota">N° Nota Fiscal <span class="optional">(Opcional)</span></label>
+              <input 
+                id="nota" 
+                name="nota" 
+                type="text" 
+                placeholder="Ex: 12345"
+              >
+              <span class="validation-message"></span>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="litros">Litros <span class="required">*</span></label>
+              <input 
+                id="litros" 
+                name="litros" 
+                type="text" 
+                placeholder="0,00"
+                required
+              >
+              <span class="validation-message"></span>
+            </div>
+
+            <div class="form-group">
+              <label for="valorLitro">Valor do Litro (R$) <span class="required">*</span></label>
+              <input 
+                id="valorLitro" 
+                name="valorLitro" 
+                type="text" 
+                placeholder="R$ 0,00"
+                required
+              >
+              <span class="validation-message"></span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="desconto">Desconto (R$) <span class="optional">(Opcional)</span></label>
+            <input 
+              id="desconto" 
+              name="desconto" 
+              type="text" 
+              placeholder="R$ 0,00"
+            >
+            <span class="validation-message"></span>
+          </div>
+
+          <div class="calculation-summary">
+            <div class="summary-row">
+              <span class="summary-label">Subtotal:</span>
+              <span class="summary-value" id="subtotal">R$ 0,00</span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Desconto:</span>
+              <span class="summary-value" id="discount-display">R$ 0,00</span>
+            </div>
+            <div class="summary-row total">
+              <span class="summary-label">Total:</span>
+              <span class="summary-value" id="total-display">R$ 0,00</span>
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset class="form-section">
+          <legend>Anexar Imagens <span class="optional">(Opcional)</span></legend>
+
+          <div class="image-upload-area">
+            <input 
+              id="image-upload" 
+              type="file" 
+              multiple 
+              accept=".jpg,.jpeg,.png"
+              class="image-input"
+            >
+            <label for="image-upload" class="image-upload-label">
+              <div class="upload-icon">📷</div>
+              <p class="upload-text">Clique ou arraste imagens aqui</p>
+              <p class="upload-hint">Formatos: JPG, JPEG, PNG</p>
+            </label>
+          </div>
+
+          <div id="image-preview-container" class="image-preview-container"></div>
+        </fieldset>
+
+        <div class="form-actions">
+          <button type="submit" id="submit-btn" class="btn btn-primary">
+            <span class="btn-text">Salvar e Enviar</span>
+          </button>
+          <button type="reset" class="btn btn-secondary">
+            <span class="btn-text">Limpar Formulário</span>
+          </button>
+        </div>
+
+        <div id="offline-info" class="offline-info" style="display: none;">
+          <p>
+            <strong>Modo Offline:</strong> Seus dados foram salvos localmente e serão sincronizados 
+            automaticamente quando a conexão for restaurada.
+          </p>
+          <p id="pending-count"></p>
+        </div>
+      </form>
+
+      <section id="pending-section" class="pending-section" style="display: none;">
+        <h2>Registros Pendentes de Sincronização</h2>
+        <div id="pending-list" class="pending-list"></div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>Desenvolvido por Calil Asir Vaz Velozo</p>
+    </footer>
+  </div>
+
+  <script src="libs/jspdf.umd.min.js"></script>
+  
+  <script src="script.js"></script>
+</body>
+</html>
