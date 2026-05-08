@@ -1,4 +1,4 @@
-const API = 'https://script.google.com/macros/s/AKfycbyHZOzKFBDQTqb-Tp4q1rZtZE7LrzrNi1bqueb1GwfLgYBoUvyPBCfiYKNXFyuDQt1b/exec';
+const API = 'https://script.google.com/macros/s/AKfycbyHSVnfJoXO4rXbDnMFwbDp-9OfAm509mmOfZsDvLtozfNYgpcFhsLpLXd-vt08eMOC/exec';
 
 let ultimoOdometro = 0;
 let selectedImages = [];
@@ -6,9 +6,9 @@ let isProcessing = false;
 let isSyncing = false; 
 
 document.addEventListener('DOMContentLoaded', () => {
-  
   carregarDados();
   configurarEventListeners();
+  configurarAccordions();
   
   atualizarExibicaoPendentes();
   
@@ -28,14 +28,23 @@ document.addEventListener('DOMContentLoaded', () => {
   atualizarStatusConexao(navigator.onLine);
 });
 
+function configurarAccordions() {
+  document.querySelectorAll('.expand-trigger').forEach(trigger => {
+    trigger.addEventListener('click', () => {
+      const parent = trigger.parentElement;
+      parent.classList.toggle('active');
+    });
+  });
+}
+
 function mostrarModal(titulo, texto) {
   const modal = document.getElementById('processing-modal');
   const titleEl = document.getElementById('modal-status-title');
   const textEl = document.getElementById('modal-status-text');
   
-  titleEl.textContent = titulo;
-  textEl.textContent = texto;
-  modal.classList.add('active');
+  if (titleEl) titleEl.textContent = titulo;
+  if (textEl) textEl.textContent = texto;
+  if (modal) modal.classList.add('active');
 }
 
 function atualizarModal(titulo, texto) {
@@ -53,12 +62,16 @@ function esconderModal() {
 
 function configurarEventListeners() {
   const form = document.getElementById('fuel-form');
-  const imageUpload = document.getElementById('image-upload');
+  const imageCamera = document.getElementById('image-camera');
+  const imageGallery = document.getElementById('image-gallery');
   const veiculo = document.getElementById('veiculo');
   const litros = document.getElementById('litros');
   const valorLitro = document.getElementById('valorLitro');
   const desconto = document.getElementById('desconto');
   const odometro = document.getElementById('odometro');
+  
+  const arlaLitros = document.getElementById('arla-litros');
+  const arlaValorLitro = document.getElementById('arla-valorLitro');
 
   form.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -73,24 +86,24 @@ function configurarEventListeners() {
     carregarOdometroVeiculo(e.target.value);
   });
 
-  imageUpload.addEventListener('change', (e) => {
-    processarImagensUpload(e.target.files);
-  });
+  imageCamera.addEventListener('change', (e) => processarImagensUpload(e.target.files));
+  imageGallery.addEventListener('change', (e) => processarImagensUpload(e.target.files));
 
   valorLitro.addEventListener('input', (e) => {
     e.target.value = formatarMoeda(e.target.value);
     atualizarResumoCalculo();
   });
-
   desconto.addEventListener('input', (e) => {
     e.target.value = formatarMoeda(e.target.value);
     atualizarResumoCalculo();
   });
-
   litros.addEventListener('input', (e) => {
     e.target.value = formatarNumero(e.target.value);
     atualizarResumoCalculo();
   });
+
+  arlaLitros.addEventListener('input', (e) => e.target.value = formatarNumero(e.target.value));
+  arlaValorLitro.addEventListener('input', (e) => e.target.value = formatarMoeda(e.target.value));
 
   odometro.addEventListener('input', (e) => {
     e.target.value = formatarNumeroDecimal(e.target.value);
@@ -137,9 +150,7 @@ function parseDecimal(valor) {
 function obterDimensoesImagem(base64) {
   return new Promise((resolve) => {
     const img = new Image();
-    img.onload = () => {
-      resolve({ largura: img.width, altura: img.height });
-    };
+    img.onload = () => resolve({ largura: img.width, altura: img.height });
     img.src = base64;
   });
 }
@@ -212,40 +223,77 @@ async function gerarPDF(dados) {
     y += 7;
   });
 
-  y += 5;
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(14);
-  doc.text('Valores do Abastecimento', margin, y);
-  y += 2;
-  doc.line(margin, y, 195, y);
-  y += 10;
-
-  doc.setFontSize(11);
-  const valoresData = [
-    ['Quantidade:', `${dados.litros.toLocaleString('pt-BR')} Litros`],
-    ['Valor do Litro:', dados.valorLitro.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })],
-    ['Desconto:', dados.desconto.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })]
-  ];
-
-  valoresData.forEach(row => {
+  if (dados.litros > 0) {
+    y += 5;
     doc.setFont('helvetica', 'bold');
-    doc.text(row[0], margin, y);
-    doc.setFont('helvetica', 'normal');
-    doc.text(row[1], margin + 40, y);
-    y += 7;
-  });
+    doc.setFontSize(14);
+    doc.text('Valores do Abastecimento (Diesel)', margin, y);
+    y += 2;
+    doc.line(margin, y, 195, y);
+    y += 10;
 
-  y += 3;
-  doc.setFillColor(240, 240, 240);
-  doc.rect(margin, y - 5, 180, 10, 'F');
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(12);
-  doc.text('TOTAL:', margin + 2, y + 2);
-  doc.text(dados.total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), margin + 40, y + 2);
+    doc.setFontSize(11);
+    const valoresData = [
+      ['Quantidade:', `${dados.litros.toLocaleString('pt-BR')} Litros`],
+      ['Valor do Litro:', dados.valorLitro.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })],
+      ['Desconto:', dados.desconto.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })]
+    ];
 
-  y += 20;
+    valoresData.forEach(row => {
+      doc.setFont('helvetica', 'bold');
+      doc.text(row[0], margin, y);
+      doc.setFont('helvetica', 'normal');
+      doc.text(row[1], margin + 40, y);
+      y += 7;
+    });
+
+    y += 3;
+    doc.setFillColor(240, 240, 240);
+    doc.rect(margin, y - 5, 180, 10, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.text('TOTAL DIESEL:', margin + 2, y + 2);
+    doc.text(dados.total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), margin + 40, y + 2);
+    y += 15;
+  }
+
+  if (dados.arla && dados.arla.litros > 0) {
+    y += 5;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.text('Valores ARLA', margin, y);
+    y += 2;
+    doc.line(margin, y, 195, y);
+    y += 10;
+
+    doc.setFontSize(11);
+    const arlaData = [
+      ['Nota Fiscal ARLA:', dados.arla.nota || 'Não informado'],
+      ['Fornecedor ARLA:', dados.arla.fornecedor || 'Não informado'],
+      ['Quantidade:', `${dados.arla.litros.toLocaleString('pt-BR')} Litros`],
+      ['Valor do Litro:', dados.arla.valorLitro.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })]
+    ];
+
+    arlaData.forEach(row => {
+      doc.setFont('helvetica', 'bold');
+      doc.text(row[0], margin, y);
+      doc.setFont('helvetica', 'normal');
+      doc.text(row[1], margin + 40, y);
+      y += 7;
+    });
+
+    y += 3;
+    doc.setFillColor(240, 240, 240);
+    doc.rect(margin, y - 5, 180, 10, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.text('TOTAL ARLA:', margin + 2, y + 2);
+    doc.text(dados.arla.total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), margin + 40, y + 2);
+    y += 15;
+  }
 
   if (selectedImages && selectedImages.length > 0) {
+    if (y > 200) { doc.addPage(); y = 20; }
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
     doc.text('Fotos Anexadas', margin, y);
@@ -267,10 +315,7 @@ async function gerarPDF(dados) {
         renderHeight = maxImgHeight;
         renderWidth = renderHeight * aspect;
       }
-      if (y + renderHeight > 275) {
-        doc.addPage();
-        y = 20;
-      }
+      if (y + renderHeight > 275) { doc.addPage(); y = 20; }
       try {
         const centerX = imgX + (maxImgWidth - renderWidth) / 2;
         doc.addImage(selectedImages[i].dataUrl, 'JPEG', centerX, y, renderWidth, renderHeight);
@@ -313,10 +358,16 @@ async function processarEnvio() {
     const valorLitro = parseMoeda(document.getElementById('valorLitro').value);
     const desconto = parseMoeda(document.getElementById('desconto').value || '0');
     const total = (litros * valorLitro) - desconto;
-    const odometroVal = parseDecimal(document.getElementById('odometro').value);
     
-    // ID único robusto
+    const arlaLitros = parseMoeda(document.getElementById('arla-litros').value);
+    const arlaValorLitro = parseMoeda(document.getElementById('arla-valorLitro').value);
+    const arlaTotal = arlaLitros * arlaValorLitro;
+
+    const odometroVal = parseDecimal(document.getElementById('odometro').value);
     const uniqueId = 'REG-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+
+    const timestampOriginal = new Date().toISOString();
+    const dataOriginal = new Date().toLocaleDateString('pt-BR');
 
     const dados = {
       id: uniqueId,
@@ -327,8 +378,16 @@ async function processarEnvio() {
       combustivel: 'Diesel',
       litros, valorLitro, desconto, total,
       odometro: odometroVal,
-      data: new Date().toLocaleDateString('pt-BR'),
-      timestamp: new Date().toISOString()
+      data: dataOriginal,
+      timestamp: timestampOriginal,
+      arla: {
+        nota: document.getElementById('arla-nota').value,
+        data: document.getElementById('arla-data').value || dataOriginal,
+        fornecedor: document.getElementById('arla-fornecedor').value,
+        litros: arlaLitros,
+        valorLitro: arlaValorLitro,
+        total: arlaTotal
+      }
     };
 
     if (dados.odometro < ultimoOdometro) {
@@ -337,8 +396,7 @@ async function processarEnvio() {
       return;
     }
 
-    mostrarModal('Gerando relatório...', 'Estamos preparando o seu PDF de abastecimento.');
-    
+    mostrarModal('Gerando relatório...', 'Preparando o PDF com os dados do abastecimento.');
     const pdfBlob = await gerarPDF(dados);
     
     const pdfBase64 = await new Promise(resolve => {
@@ -362,124 +420,86 @@ async function processarEnvio() {
     link.click();
 
     if (navigator.onLine) {
-      atualizarModal('Enviando dados...', 'Salvando as informações na planilha da Transportadora Talismã.');
-      
+      atualizarModal('Enviando dados...', 'Salvando informações na nuvem...');
       const sucesso = await enviarParaAPI(registroCompleto);
-      
       if (sucesso) {
-        atualizarModal('Concluído!', 'Dados enviados com sucesso para a nuvem.');
-        setTimeout(() => {
-          esconderModal();
-          exibirMensagem('✅ Registro enviado com sucesso!', 'success');
-          resetarFormulario();
-          isProcessing = false;
-        }, 1500);
+        esconderModal();
+        exibirMensagem('✅ Registro enviado com sucesso!', 'success');
+        resetarFormulario();
       } else {
-        atualizarModal('Salvando localmente...', 'Houve um erro no envio, mas não se preocupe: seus dados foram salvos para sincronização posterior.');
         salvarNaFila(registroCompleto);
-        setTimeout(() => {
-          esconderModal();
-          exibirMensagem('⚠️ Erro ao enviar. Salvo localmente para sincronizar depois.', 'warning');
-          resetarFormulario();
-          isProcessing = false;
-        }, 2000);
+        esconderModal();
+        exibirMensagem('⚠️ Erro no envio. Salvo na fila local.', 'warning');
+        resetarFormulario();
       }
     } else {
-      atualizarModal('Modo Offline', 'Você está sem internet. Seus dados foram salvos na fila e serão enviados automaticamente assim que você se conectar.');
       salvarNaFila(registroCompleto);
-      setTimeout(() => {
-        esconderModal();
-        exibirMensagem('📴 Sem conexão. Dados salvos para sincronização automática.', 'warning');
-        resetarFormulario();
-        isProcessing = false;
-      }, 2500);
+      esconderModal();
+      exibirMensagem('📴 Offline. Salvo para sincronização automática.', 'warning');
+      resetarFormulario();
     }
 
   } catch (erro) {
-    console.error('❌ Erro no processamento:', erro);
+    console.error(erro);
     esconderModal();
-    exibirMensagem('❌ Ocorreu um erro inesperado.', 'error');
+    exibirMensagem('❌ Erro inesperado.', 'error');
+  } finally {
     isProcessing = false;
   }
 }
 
 async function enviarParaAPI(dados) {
   try {
-    const { km, km_por_litro, ...payload } = dados;
-    
     const response = await fetch(API, {
       method: 'POST',
-      mode: 'no-cors', 
-      body: JSON.stringify(payload)
+      mode: 'no-cors',
+      body: JSON.stringify(dados)
     });
-    
     return true; 
   } catch (e) {
-    console.error('Erro no fetch:', e);
     return false;
   }
 }
 
 function salvarNaFila(registro) {
   const fila = JSON.parse(localStorage.getItem('fila_abastecimento')) || [];
-  if (!fila.some(f => f.id === registro.id)) {
-    fila.push(registro);
-    localStorage.setItem('fila_abastecimento', JSON.stringify(fila));
-  }
+  fila.push(registro);
+  localStorage.setItem('fila_abastecimento', JSON.stringify(fila));
   atualizarExibicaoPendentes();
 }
 
 async function sincronizarFila() {
   if (isSyncing || !navigator.onLine) return;
+  
+  const fila = JSON.parse(localStorage.getItem('fila_abastecimento')) || [];
+  if (fila.length === 0) return;
 
-  try {
-    isSyncing = true;
-    const fila = JSON.parse(localStorage.getItem('fila_abastecimento')) || [];
-    if (fila.length === 0) {
-      isSyncing = false;
-      atualizarExibicaoPendentes();
-      return;
+  isSyncing = true;
+  console.log(`🔄 Sincronizando ${fila.length} itens...`);
+
+  const novaFila = [...fila];
+  let sucessos = 0;
+
+  for (const item of fila) {
+    const sucesso = await enviarParaAPI(item);
+    if (sucesso) {
+      const index = novaFila.findIndex(f => f.id === item.id);
+      if (index > -1) novaFila.splice(index, 1);
+      sucessos++;
     }
-
-    let sucessos = 0;
-    const idsRemover = [];
-
-    for (const item of fila) {
-      const sucesso = await enviarParaAPI(item);
-      if (sucesso) {
-        idsRemover.push(item.id);
-        sucessos++;
-      } else {
-        break;
-      }
-    }
-
-    if (idsRemover.length > 0) {
-      const filaAtualizada = JSON.parse(localStorage.getItem('fila_abastecimento')) || [];
-      const novaFila = filaAtualizada.filter(f => !idsRemover.includes(f.id));
-      localStorage.setItem('fila_abastecimento', JSON.stringify(novaFila));
-    }
-
-    atualizarExibicaoPendentes();
-
-    if (sucessos > 0) {
-      exibirMensagem(`${sucessos} registro(s) sincronizado(s) com sucesso!`, 'success');
-    }
-  } catch (e) {
-    console.error('Erro na sincronização:', e);
-  } finally {
-    isSyncing = false;
   }
+
+  localStorage.setItem('fila_abastecimento', JSON.stringify(novaFila));
+  atualizarExibicaoPendentes();
+  isSyncing = false;
+  
+  if (sucessos > 0) exibirMensagem(`✅ ${sucessos} itens sincronizados!`, 'success');
 }
 
 async function carregarDados() {
-  const motoristasSalvos = JSON.parse(localStorage.getItem('dados_motoristas'));
-  const veiculosSalvos = JSON.parse(localStorage.getItem('dados_veiculos'));
-
-  if (motoristasSalvos || veiculosSalvos) {
-    popularSelects(motoristasSalvos, veiculosSalvos);
-    removerLoadingScreen();
-  }
+  const mSalvos = JSON.parse(localStorage.getItem('dados_motoristas'));
+  const vSalvos = JSON.parse(localStorage.getItem('dados_veiculos'));
+  if (mSalvos || vSalvos) popularSelects(mSalvos, vSalvos);
 
   if (navigator.onLine) {
     try {
@@ -490,22 +510,21 @@ async function carregarDados() {
       localStorage.setItem('dados_motoristas', JSON.stringify(m));
       localStorage.setItem('dados_veiculos', JSON.stringify(v));
       popularSelects(m, v);
-    } catch (e) { 
-      console.error('Erro ao carregar dados da API:', e); 
-    } finally { 
-      removerLoadingScreen(); 
-    }
+    } catch (e) {}
+    finally { removerLoadingScreen(); }
+  } else {
+    removerLoadingScreen();
   }
 }
 
 function popularSelects(motoristas, veiculos) {
   const selM = document.getElementById('motorista');
   const selV = document.getElementById('veiculo');
-  if (motoristas && selM) {
+  if (motoristas) {
     selM.innerHTML = '<option value="" disabled selected>Selecione o Motorista</option>' + 
       motoristas.map(m => `<option value="${m.NOME}">${m.NOME}</option>`).join('');
   }
-  if (veiculos && selV) {
+  if (veiculos) {
     selV.innerHTML = '<option value="" disabled selected>Selecione o Veículo</option>' + 
       veiculos.map(v => `<option value="${v.PLACA}">${v.PLACA} - ${v.MODELO}</option>`).join('');
   }
@@ -513,18 +532,14 @@ function popularSelects(motoristas, veiculos) {
 
 async function carregarOdometroVeiculo(placa) {
   const input = document.getElementById('odometro');
-  if (!placa || !input) return;
-  
+  if (!placa) return;
   input.placeholder = 'Buscando...';
-  
   if (navigator.onLine) {
     try {
       const res = await fetch(API + '?aba=ultimoOdometro&placa=' + placa).then(r => r.json());
       ultimoOdometro = Number(res.odometro || 0);
       localStorage.setItem(`last_odo_${placa}`, ultimoOdometro);
-    } catch (e) { 
-      ultimoOdometro = Number(localStorage.getItem(`last_odo_${placa}`) || 0); 
-    }
+    } catch (e) { ultimoOdometro = Number(localStorage.getItem(`last_odo_${placa}`) || 0); }
   } else {
     ultimoOdometro = Number(localStorage.getItem(`last_odo_${placa}`) || 0);
   }
@@ -532,28 +547,19 @@ async function carregarOdometroVeiculo(placa) {
 }
 
 function processarImagensUpload(files) {
-  const container = document.getElementById('image-preview-container');
-  if (!container) return;
-
   Array.from(files).forEach(file => {
-    if (!['image/jpeg', 'image/png', 'image/jpg'].includes(file.type)) {
-      exibirMensagem('❌ Apenas JPG e PNG são permitidos.', 'error');
-      return;
-    }
-
+    if (!['image/jpeg', 'image/png'].includes(file.type)) return;
     const reader = new FileReader();
     reader.onload = (e) => {
       const dataUrl = e.target.result;
       const preview = document.createElement('div');
       preview.className = 'image-preview-item';
       preview.innerHTML = `<img src="${dataUrl}"><button type="button" class="image-remove-btn">✕</button>`;
-      
       preview.querySelector('button').onclick = () => {
         selectedImages = selectedImages.filter(img => img.file !== file);
         preview.remove();
       };
-      
-      container.appendChild(preview);
+      document.getElementById('image-preview-container').appendChild(preview);
       selectedImages.push({ file, dataUrl });
     };
     reader.readAsDataURL(file);
@@ -566,31 +572,24 @@ function atualizarResumoCalculo() {
   const d = parseMoeda(document.getElementById('desconto').value);
   const sub = l * v;
   const tot = sub - d;
-  
-  const subEl = document.getElementById('subtotal');
-  const descEl = document.getElementById('discount-display');
-  const totEl = document.getElementById('total-display');
-
-  if (subEl) subEl.textContent = sub.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  if (descEl) descEl.textContent = d.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  if (totEl) totEl.textContent = tot.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  document.getElementById('subtotal').textContent = sub.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  document.getElementById('discount-display').textContent = d.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  document.getElementById('total-display').textContent = tot.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
 function atualizarStatusConexao(online) {
   const status = document.getElementById('connection-status');
-  if (!status) return;
-
   const text = status.querySelector('.status-text');
   const info = document.getElementById('offline-info');
   const fila = JSON.parse(localStorage.getItem('fila_abastecimento')) || [];
 
   if (online) {
     status.className = 'connection-status online';
-    if (text) text.textContent = 'Online';
+    text.textContent = 'Online';
     if (fila.length === 0 && info) info.style.display = 'none';
   } else {
     status.className = 'connection-status offline';
-    if (text) text.textContent = 'Offline';
+    text.textContent = 'Offline';
     if (info) info.style.display = 'block';
   }
   atualizarExibicaoPendentes();
@@ -611,27 +610,23 @@ function atualizarExibicaoPendentes() {
 
   if (section) section.style.display = 'block';
   if (offlineInfo) offlineInfo.style.display = 'block';
-
-  if (count) count.textContent = `${fila.length} registro(s) aguardando sincronização`;
+  if (count) count.textContent = `${fila.length} registro(s) pendentes`;
   if (list) {
     list.innerHTML = fila.map(item => `
       <div class="pending-item">
         <strong>${item.placa}</strong> - ${item.fornecedor}<br>
-        <small>Total: R$ ${item.total.toFixed(2)} | ${new Date(item.timestamp).toLocaleDateString()}</small>
+        <small>Diesel: R$ ${item.total.toFixed(2)} | ARLA: R$ ${item.arla.total.toFixed(2)}</small>
       </div>
     `).join('');
   }
 }
 
 function resetarFormulario() {
-  const form = document.getElementById('fuel-form');
-  if (form) form.reset();
-  
-  const container = document.getElementById('image-preview-container');
-  if (container) container.innerHTML = '';
-  
+  document.getElementById('fuel-form').reset();
+  document.getElementById('image-preview-container').innerHTML = '';
   selectedImages = [];
   atualizarResumoCalculo();
+  document.querySelectorAll('.expandable-section').forEach(s => s.classList.remove('active'));
 }
 
 function removerLoadingScreen() {
