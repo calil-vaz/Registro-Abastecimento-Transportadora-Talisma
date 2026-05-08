@@ -916,3 +916,134 @@ input:invalid ~ .validation-message {
   0% { transform: translateX(0); }
   100% { transform: translateX(-50%); }
 }
+
+/* ============================================================================
+   SEÇÕES EXPANSÍVEIS (ACCORDION)
+   ============================================================================ */
+
+.expandable-section {
+  margin-bottom: var(--spacing-md);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: white;
+}
+
+.expand-trigger {
+  width: 100%;
+  padding: var(--spacing-lg);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  background: var(--bg-secondary);
+  border: none;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+  text-align: left;
+}
+
+.expand-trigger:hover {
+  background: var(--bg-tertiary);
+}
+
+.trigger-icon {
+  font-size: 1.2rem;
+}
+
+.trigger-title {
+  flex: 1;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: var(--font-size-base);
+}
+
+.trigger-arrow {
+  font-size: 0.8rem;
+  transition: transform var(--transition-base);
+  color: var(--text-tertiary);
+}
+
+.expandable-section.active .trigger-arrow {
+  transform: rotate(180deg);
+}
+
+.expandable-content {
+  display: none;
+  border: none !important;
+  border-radius: 0 !important;
+  margin-bottom: 0 !important;
+  padding: var(--spacing-lg);
+  animation: slideDownFade 0.3s ease-out;
+}
+
+.expandable-section.active .expandable-content {
+  display: block;
+}
+
+@keyframes slideDownFade {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ============================================================================
+   BOTÕES DE UPLOAD DE IMAGEM (CÂMERA E GALERIA)
+   ============================================================================ */
+
+.image-upload-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+.upload-card {
+  position: relative;
+}
+
+.hidden-input {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+}
+
+.upload-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-xl) var(--spacing-md);
+  background: white;
+  border: 2px dashed var(--border-dark);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+.upload-btn:hover {
+  border-color: var(--primary-red);
+  background: rgba(189, 5, 5, 0.05);
+}
+
+.upload-btn .icon {
+  font-size: 2rem;
+  margin-bottom: var(--spacing-sm);
+}
+
+.upload-btn .text {
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+}
+
+@media (max-width: 480px) {
+  .image-upload-controls {
+    grid-template-columns: 1fr;
+  }
+}
