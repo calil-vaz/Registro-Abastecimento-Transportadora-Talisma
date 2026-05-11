@@ -50,7 +50,36 @@
 
     <main class="main-content">
       <form id="fuel-form" class="fuel-form">
-        <!-- Seção: Informações Globais -->
+        
+        <div class="type-selector">
+          <button type="button" id="btn-diesel" class="toggle-btn" data-type="diesel">
+            <span class="icon">⛽</span> Diesel
+          </button>
+          <button type="button" id="btn-arla" class="toggle-btn" data-type="arla">
+            <span class="icon">🟦</span> ARLA
+          </button>
+        </div>
+
+        <fieldset class="form-section">
+          <legend>Dados Gerais</legend>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="fornecedor">Fornecedor <span class="required">*</span></label>
+              <input id="fornecedor" name="fornecedor" type="text" placeholder="Ex: Posto ABC" required>
+            </div>
+            <div class="form-group">
+              <label for="nota">N° Nota Fiscal <span class="optional">(Opcional)</span></label>
+              <input id="nota" name="nota" type="text" placeholder="Ex: 12345">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="data-abastecimento">Data do Abastecimento <span class="required">*</span></label>
+            <input id="data-abastecimento" name="data-abastecimento" type="date" required>
+          </div>
+        </fieldset>
+
         <fieldset class="form-section">
           <legend>Informações do Veículo</legend>
           
@@ -59,7 +88,6 @@
             <select id="motorista" name="motorista" required>
               <option value="" disabled selected>Selecione o Motorista</option>
             </select>
-            <span class="validation-message"></span>
           </div>
 
           <div class="form-group">
@@ -67,57 +95,37 @@
             <select id="veiculo" name="veiculo" required>
               <option value="" disabled selected>Selecione o Veículo</option>
             </select>
-            <span class="validation-message"></span>
           </div>
 
-          <div class="form-group">
+          <div id="odometro-group" class="form-group">
             <label for="odometro">Odômetro Atual <span class="required">*</span></label>
-            <input id="odometro" name="odometro" type="text" placeholder="Selecione um veículo" required>
-            <span class="validation-message"></span>
+            <input id="odometro" name="odometro" type="text" placeholder="Selecione um veículo">
           </div>
         </fieldset>
 
-        <!-- Seção: Dados do Abastecimento (Diesel) - Expansível -->
-        <div class="expandable-section">
-          <button type="button" class="expand-trigger" data-target="diesel-section">
+        <div id="section-diesel" class="expandable-section" style="display: none;">
+          <button type="button" class="expand-trigger" data-target="diesel-content">
             <span class="trigger-icon">⛽</span>
             <span class="trigger-title">Dados do Abastecimento (Diesel)</span>
             <span class="trigger-arrow">▼</span>
           </button>
           
-          <fieldset id="diesel-section" class="form-section expandable-content">
-            <div class="form-row">
-              <div class="form-group">
-                <label for="fornecedor">Fornecedor <span class="required">*</span></label>
-                <input id="fornecedor" name="fornecedor" type="text" placeholder="Ex: Posto ABC">
-                <span class="validation-message"></span>
-              </div>
-
-              <div class="form-group">
-                <label for="nota">N° Nota Fiscal <span class="optional">(Opcional)</span></label>
-                <input id="nota" name="nota" type="text" placeholder="Ex: 12345">
-                <span class="validation-message"></span>
-              </div>
-            </div>
-
+          <fieldset id="diesel-content" class="form-section expandable-content">
             <div class="form-row">
               <div class="form-group">
                 <label for="litros">Litros <span class="required">*</span></label>
                 <input id="litros" name="litros" type="text" placeholder="0,00">
-                <span class="validation-message"></span>
               </div>
 
               <div class="form-group">
                 <label for="valorLitro">Valor do Litro (R$) <span class="required">*</span></label>
                 <input id="valorLitro" name="valorLitro" type="text" placeholder="R$ 0,00">
-                <span class="validation-message"></span>
               </div>
             </div>
 
             <div class="form-group">
               <label for="desconto">Desconto (R$) <span class="optional">(Opcional)</span></label>
               <input id="desconto" name="desconto" type="text" placeholder="R$ 0,00">
-              <span class="validation-message"></span>
             </div>
 
             <div class="calculation-summary">
@@ -137,45 +145,33 @@
           </fieldset>
         </div>
 
-        <!-- Seção: ARLA - Expansível -->
-        <div class="expandable-section">
-          <button type="button" class="expand-trigger" data-target="arla-section">
+        <div id="section-arla" class="expandable-section" style="display: none;">
+          <button type="button" class="expand-trigger" data-target="arla-content">
             <span class="trigger-icon">🟦</span>
             <span class="trigger-title">ARLA</span>
             <span class="trigger-arrow">▼</span>
           </button>
           
-          <fieldset id="arla-section" class="form-section expandable-content">
+          <fieldset id="arla-content" class="form-section expandable-content">
             <div class="form-row">
               <div class="form-group">
-                <label for="arla-nota">N° Nota <span class="optional">(Opcional)</span></label>
-                <input id="arla-nota" name="arla-nota" type="text" placeholder="Ex: 54321">
-              </div>
-              <div class="form-group">
-                <label for="arla-data">Data do abastecimento</label>
-                <input id="arla-data" name="arla-data" type="date">
-              </div>
-            </div>
-            
-            <div class="form-group">
-              <label for="arla-fornecedor">Fornecedor</label>
-              <input id="arla-fornecedor" name="arla-fornecedor" type="text" placeholder="Ex: Posto XYZ">
-            </div>
-
-            <div class="form-row">
-              <div class="form-group">
-                <label for="arla-litros">Quantidade de litros</label>
+                <label for="arla-litros">Quantidade de litros <span class="required">*</span></label>
                 <input id="arla-litros" name="arla-litros" type="text" placeholder="0,00">
               </div>
               <div class="form-group">
-                <label for="arla-valorLitro">Valor do litro (R$)</label>
+                <label for="arla-valorLitro">Valor do litro (R$) <span class="required">*</span></label>
                 <input id="arla-valorLitro" name="arla-valorLitro" type="text" placeholder="R$ 0,00">
+              </div>
+            </div>
+            <div class="calculation-summary">
+              <div class="summary-row total">
+                <span class="summary-label">Total ARLA:</span>
+                <span class="summary-value" id="arla-total-display">R$ 0,00</span>
               </div>
             </div>
           </fieldset>
         </div>
 
-        <!-- Seção: Imagens -->
         <fieldset class="form-section">
           <legend>Anexar Imagens <span class="optional">(Opcional)</span></legend>
 
