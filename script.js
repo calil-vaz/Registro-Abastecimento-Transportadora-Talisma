@@ -1,14 +1,26 @@
-const API = 'https://script.google.com/macros/s/AKfycbyHSVnfJoXO4rXbDnMFwbDp-9OfAm509mmOfZsDvLtozfNYgpcFhsLpLXd-vt08eMOC/exec';
+const API = 'https://script.google.com/macros/s/AKfycbzt8Sxkx-9N0ZB44MN5NKQ9qvI5XIqHiQiJyU3hbBzQMI49PRmsdhAYTp9Aot1UnWg8/exec';
 
 let ultimoOdometro = 0;
 let selectedImages = [];
 let isProcessing = false;
 let isSyncing = false; 
 
+let selectionState = {
+  diesel: false,
+  arla: false
+};
+
 document.addEventListener('DOMContentLoaded', () => {
   carregarDados();
   configurarEventListeners();
   configurarAccordions();
+  configurarToggles();
+  
+  const dataInput = document.getElementById('data-abastecimento');
+  if (dataInput) {
+    const hoje = new Date().toISOString().split('T')[0];
+    dataInput.value = hoje;
+  }
   
   atualizarExibicaoPendentes();
   
@@ -27,6 +39,41 @@ document.addEventListener('DOMContentLoaded', () => {
   
   atualizarStatusConexao(navigator.onLine);
 });
+
+function configurarToggles() {
+  const btnDiesel = document.getElementById('btn-diesel');
+  const btnArla = document.getElementById('btn-arla');
+  const sectionDiesel = document.getElementById('section-diesel');
+  const sectionArla = document.getElementById('section-arla');
+  const odometroGroup = document.getElementById('odometro-group');
+  const odometroInput = document.getElementById('odometro');
+
+  function updateUI() {
+    btnDiesel.classList.toggle('active', selectionState.diesel);
+    btnArla.classList.toggle('active', selectionState.arla);
+
+    sectionDiesel.style.display = selectionState.diesel ? 'block' : 'none';
+    sectionArla.style.display = selectionState.arla ? 'block' : 'none';
+
+    if (selectionState.diesel) {
+      odometroInput.setAttribute('required', 'required');
+      odometroGroup.querySelector('label').innerHTML = 'Odômetro Atual <span class="required">*</span>';
+    } else {
+      odometroInput.removeAttribute('required');
+      odometroGroup.querySelector('label').innerHTML = 'Odômetro Atual <span class="optional">(Opcional)</span>';
+    }
+  }
+
+  btnDiesel.addEventListener('click', () => {
+    selectionState.diesel = !selectionState.diesel;
+    updateUI();
+  });
+
+  btnArla.addEventListener('click', () => {
+    selectionState.arla = !selectionState.arla;
+    updateUI();
+  });
+}
 
 function configurarAccordions() {
   document.querySelectorAll('.expand-trigger').forEach(trigger => {
@@ -102,8 +149,14 @@ function configurarEventListeners() {
     atualizarResumoCalculo();
   });
 
-  arlaLitros.addEventListener('input', (e) => e.target.value = formatarNumero(e.target.value));
-  arlaValorLitro.addEventListener('input', (e) => e.target.value = formatarMoeda(e.target.value));
+  arlaLitros.addEventListener('input', (e) => {
+    e.target.value = formatarNumero(e.target.value);
+    atualizarResumoArla();
+  });
+  arlaValorLitro.addEventListener('input', (e) => {
+    e.target.value = formatarMoeda(e.target.value);
+    atualizarResumoArla();
+  });
 
   odometro.addEventListener('input', (e) => {
     e.target.value = formatarNumeroDecimal(e.target.value);
@@ -147,31 +200,6 @@ function parseDecimal(valor) {
   return Number(valor.toString().replace(/\./g, '').replace(',', '.'));
 }
 
-function obterDimensoesImagem(base64) {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => resolve({ largura: img.width, altura: img.height });
-    img.src = base64;
-  });
-}
-
-function carregarImagemBase64(url) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'Anonymous';
-    img.onload = function () {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0);
-      resolve(canvas.toDataURL('image/png'));
-    };
-    img.onerror = reject;
-    img.src = url;
-  });
-}
-
 async function gerarPDF(dados) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
@@ -197,7 +225,7 @@ async function gerarPDF(dados) {
   doc.setTextColor(40, 40, 40);
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
-  doc.text('Informações do Registro', margin, y);
+  doc.text('Informações Gerais', margin, y);
   y += 2;
   doc.setLineWidth(0.5);
   doc.setDrawColor(200, 200, 200);
@@ -207,12 +235,12 @@ async function gerarPDF(dados) {
   doc.setFontSize(11);
   const infoData = [
     ['ID do Registro:', dados.id],
-    ['Data/Hora:', new Date(dados.timestamp).toLocaleString('pt-BR')],
+    ['Data informada:', dados.data],
     ['Motorista:', dados.motorista],
     ['Veículo:', dados.placa],
+    ['Fornecedor:', dados.fornecedor],
     ['N° Nota Fiscal:', dados.nota || 'Não informado'],
-    ['Odômetro:', `${dados.odometro.toLocaleString('pt-BR')} km`],
-    ['Fornecedor:', dados.fornecedor]
+    ['Odômetro:', dados.odometro ? `${dados.odometro.toLocaleString('pt-BR')} km` : 'Não registrado']
   ];
 
   infoData.forEach(row => {
@@ -268,8 +296,6 @@ async function gerarPDF(dados) {
 
     doc.setFontSize(11);
     const arlaData = [
-      ['Nota Fiscal ARLA:', dados.arla.nota || 'Não informado'],
-      ['Fornecedor ARLA:', dados.arla.fornecedor || 'Não informado'],
       ['Quantidade:', `${dados.arla.litros.toLocaleString('pt-BR')} Litros`],
       ['Valor do Litro:', dados.arla.valorLitro.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })]
     ];
@@ -341,6 +367,31 @@ async function gerarPDF(dados) {
   return doc.output('blob');
 }
 
+function carregarImagemBase64(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'Anonymous';
+    img.onload = function () {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
+function obterDimensoesImagem(base64) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve({ largura: img.width, altura: img.height });
+    img.src = base64;
+  });
+}
+
 async function processarEnvio() {
   if (isProcessing) return;
 
@@ -348,26 +399,32 @@ async function processarEnvio() {
     isProcessing = true;
     const form = document.getElementById('fuel-form');
     
+    if (!selectionState.diesel && !selectionState.arla) {
+      exibirMensagem('❌ Selecione pelo menos um tipo (Diesel ou ARLA)', 'error');
+      isProcessing = false;
+      return;
+    }
+
     if (!form.checkValidity()) {
       exibirMensagem('❌ Preencha todos os campos obrigatórios', 'error');
       isProcessing = false;
       return;
     }
 
-    const litros = parseMoeda(document.getElementById('litros').value);
-    const valorLitro = parseMoeda(document.getElementById('valorLitro').value);
-    const desconto = parseMoeda(document.getElementById('desconto').value || '0');
+    const dataInput = document.getElementById('data-abastecimento').value;
+    const dataFormatada = dataInput.split('-').reverse().join('/'); 
+
+    const litros = selectionState.diesel ? parseMoeda(document.getElementById('litros').value) : 0;
+    const valorLitro = selectionState.diesel ? parseMoeda(document.getElementById('valorLitro').value) : 0;
+    const desconto = selectionState.diesel ? parseMoeda(document.getElementById('desconto').value || '0') : 0;
     const total = (litros * valorLitro) - desconto;
     
-    const arlaLitros = parseMoeda(document.getElementById('arla-litros').value);
-    const arlaValorLitro = parseMoeda(document.getElementById('arla-valorLitro').value);
+    const arlaLitros = selectionState.arla ? parseMoeda(document.getElementById('arla-litros').value) : 0;
+    const arlaValorLitro = selectionState.arla ? parseMoeda(document.getElementById('arla-valorLitro').value) : 0;
     const arlaTotal = arlaLitros * arlaValorLitro;
 
     const odometroVal = parseDecimal(document.getElementById('odometro').value);
     const uniqueId = 'REG-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
-
-    const timestampOriginal = new Date().toISOString();
-    const dataOriginal = new Date().toLocaleDateString('pt-BR');
 
     const dados = {
       id: uniqueId,
@@ -378,25 +435,22 @@ async function processarEnvio() {
       combustivel: 'Diesel',
       litros, valorLitro, desconto, total,
       odometro: odometroVal,
-      data: dataOriginal,
-      timestamp: timestampOriginal,
+      data: dataFormatada,
+      timestamp: new Date().toISOString(),
       arla: {
-        nota: document.getElementById('arla-nota').value,
-        data: document.getElementById('arla-data').value || dataOriginal,
-        fornecedor: document.getElementById('arla-fornecedor').value,
         litros: arlaLitros,
         valorLitro: arlaValorLitro,
         total: arlaTotal
       }
     };
 
-    if (dados.odometro < ultimoOdometro) {
+    if (selectionState.diesel && dados.odometro < ultimoOdometro) {
       exibirMensagem(`❌ Odômetro inválido (Mínimo: ${ultimoOdometro})`, 'error');
       isProcessing = false;
       return;
     }
 
-    mostrarModal('Gerando relatório...', 'Preparando o PDF com os dados do abastecimento.');
+    mostrarModal('Gerando relatório...', 'Preparando o PDF do registro.');
     const pdfBlob = await gerarPDF(dados);
     
     const pdfBase64 = await new Promise(resolve => {
@@ -416,7 +470,7 @@ async function processarEnvio() {
     const url = URL.createObjectURL(pdfBlob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `abastecimento_${dados.placa}_${Date.now()}.pdf`;
+    link.download = `registro_${dados.placa}_${Date.now()}.pdf`;
     link.click();
 
     if (navigator.onLine) {
@@ -475,8 +529,6 @@ async function sincronizarFila() {
   if (fila.length === 0) return;
 
   isSyncing = true;
-  console.log(`🔄 Sincronizando ${fila.length} itens...`);
-
   const novaFila = [...fila];
   let sucessos = 0;
 
@@ -577,16 +629,20 @@ function atualizarResumoCalculo() {
   document.getElementById('total-display').textContent = tot.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
+function atualizarResumoArla() {
+  const l = parseMoeda(document.getElementById('arla-litros').value);
+  const v = parseMoeda(document.getElementById('arla-valorLitro').value);
+  const tot = l * v;
+  document.getElementById('arla-total-display').textContent = tot.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
 function atualizarStatusConexao(online) {
   const status = document.getElementById('connection-status');
   const text = status.querySelector('.status-text');
   const info = document.getElementById('offline-info');
-  const fila = JSON.parse(localStorage.getItem('fila_abastecimento')) || [];
-
   if (online) {
     status.className = 'connection-status online';
     text.textContent = 'Online';
-    if (fila.length === 0 && info) info.style.display = 'none';
   } else {
     status.className = 'connection-status offline';
     text.textContent = 'Offline';
@@ -600,22 +656,17 @@ function atualizarExibicaoPendentes() {
   const section = document.getElementById('pending-section');
   const list = document.getElementById('pending-list');
   const count = document.getElementById('pending-count');
-  const offlineInfo = document.getElementById('offline-info');
-
   if (fila.length === 0) {
     if (section) section.style.display = 'none';
-    if (offlineInfo && navigator.onLine) offlineInfo.style.display = 'none';
     return;
   }
-
   if (section) section.style.display = 'block';
-  if (offlineInfo) offlineInfo.style.display = 'block';
   if (count) count.textContent = `${fila.length} registro(s) pendentes`;
   if (list) {
     list.innerHTML = fila.map(item => `
       <div class="pending-item">
         <strong>${item.placa}</strong> - ${item.fornecedor}<br>
-        <small>Diesel: R$ ${item.total.toFixed(2)} | ARLA: R$ ${item.arla.total.toFixed(2)}</small>
+        <small>${item.data} | Pendente</small>
       </div>
     `).join('');
   }
@@ -625,7 +676,18 @@ function resetarFormulario() {
   document.getElementById('fuel-form').reset();
   document.getElementById('image-preview-container').innerHTML = '';
   selectedImages = [];
+  selectionState = { diesel: false, arla: false };
+  
+  document.getElementById('btn-diesel').classList.remove('active');
+  document.getElementById('btn-arla').classList.remove('active');
+  document.getElementById('section-diesel').style.display = 'none';
+  document.getElementById('section-arla').style.display = 'none';
+  
+  const hoje = new Date().toISOString().split('T')[0];
+  document.getElementById('data-abastecimento').value = hoje;
+  
   atualizarResumoCalculo();
+  atualizarResumoArla();
   document.querySelectorAll('.expandable-section').forEach(s => s.classList.remove('active'));
 }
 
