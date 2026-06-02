@@ -5,6 +5,8 @@ let selectedImages = [];
 let isProcessing = false;
 let isSyncing = false; 
 
+const DRAFT_KEY = 'fuel_form_draft';
+
 let selectionState = {
   diesel: false,
   arla: false
@@ -21,6 +23,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const hoje = new Date().toISOString().split('T')[0];
     dataInput.value = hoje;
   }
+  
+  setTimeout(restaurarRascunho, 100);
   
   atualizarExibicaoPendentes();
   
@@ -40,7 +44,100 @@ document.addEventListener('DOMContentLoaded', () => {
   atualizarStatusConexao(navigator.onLine);
 });
 
-function configurarToggles() {
+function salvarRascunho() {
+  const form = document.getElementById('fuel-form');
+  if (!form) return;
+
+  const formData = {};
+  const inputs = form.querySelectorAll('input, select, textarea');
+  
+  inputs.forEach(input => {
+    if (input.type === 'checkbox' || input.type === 'radio') {
+      formData[input.id || input.name] = input.checked;
+    } else if (input.id !== 'image-camera' && input.id !== 'image-gallery') {
+      formData[input.id || input.name] = input.value;
+    }
+  });
+
+  const draft = {
+    formData,
+    selectionState,
+    accordions: Array.from(document.querySelectorAll('.expandable-section')).map(s => ({
+      id: s.id,
+      active: s.classList.contains('active')
+    })),
+    images: selectedImages.map(img => ({
+      name: img.file.name,
+      type: img.file.type,
+      dataUrl: img.dataUrl
+    })),
+    timestamp: Date.now()
+  };
+
+  localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+  console.log('💾 Rascunho salvo automaticamente');
+}
+
+async function restaurarRascunho() {
+  try {
+    const draftStr = localStorage.getItem(DRAFT_KEY);
+    if (!draftStr) return;
+
+    const draft = JSON.parse(draftStr);
+    console.log('🔄 Restaurando rascunho...', draft);
+
+    if (draft.selectionState) {
+      selectionState = draft.selectionState;
+      atualizarUIToggles();
+    }
+
+    if (draft.formData) {
+      for (const [id, value] of Object.entries(draft.formData)) {
+        const el = document.getElementById(id);
+        if (el) {
+          if (el.type === 'checkbox' || el.type === 'radio') {
+            el.checked = value;
+          } else {
+            el.value = value;
+          }
+        }
+      }
+    }
+
+    if (draft.accordions) {
+      draft.accordions.forEach(acc => {
+        const el = document.getElementById(acc.id);
+        if (el && acc.active) el.classList.add('active');
+      });
+    }
+
+    if (draft.images && draft.images.length > 0) {
+      for (const imgData of draft.images) {
+        const res = await fetch(imgData.dataUrl);
+        const blob = await res.blob();
+        const file = new File([blob], imgData.name, { type: imgData.type });
+        
+        adicionarPreviewImagem(file, imgData.dataUrl);
+      }
+    }
+
+    atualizarResumoCalculo();
+    atualizarResumoArla();
+    
+    const veiculo = document.getElementById('veiculo').value;
+    if (veiculo) carregarOdometroVeiculo(veiculo);
+
+    exibirMensagem('📝 Rascunho restaurado!', 'info');
+  } catch (e) {
+    console.error('Erro ao restaurar rascunho:', e);
+  }
+}
+
+function limparRascunho() {
+  localStorage.removeItem(DRAFT_KEY);
+}
+
+function atualizarUIToggles() {
   const btnDiesel = document.getElementById('btn-diesel');
   const btnArla = document.getElementById('btn-arla');
   const sectionDiesel = document.getElementById('section-diesel');
@@ -48,13 +145,15 @@ function configurarToggles() {
   const odometroGroup = document.getElementById('odometro-group');
   const odometroInput = document.getElementById('odometro');
 
-  function updateUI() {
-    btnDiesel.classList.toggle('active', selectionState.diesel);
-    btnArla.classList.toggle('active', selectionState.arla);
+  if (!btnDiesel || !btnArla) return;
 
-    sectionDiesel.style.display = selectionState.diesel ? 'block' : 'none';
-    sectionArla.style.display = selectionState.arla ? 'block' : 'none';
+  btnDiesel.classList.toggle('active', selectionState.diesel);
+  btnArla.classList.toggle('active', selectionState.arla);
 
+  if (sectionDiesel) sectionDiesel.style.display = selectionState.diesel ? 'block' : 'none';
+  if (sectionArla) sectionArla.style.display = selectionState.arla ? 'block' : 'none';
+
+  if (odometroInput && odometroGroup) {
     if (selectionState.diesel) {
       odometroInput.setAttribute('required', 'required');
       odometroGroup.querySelector('label').innerHTML = 'Odômetro Atual <span class="required">*</span>';
@@ -63,15 +162,22 @@ function configurarToggles() {
       odometroGroup.querySelector('label').innerHTML = 'Odômetro Atual <span class="optional">(Opcional)</span>';
     }
   }
+}
+
+function configurarToggles() {
+  const btnDiesel = document.getElementById('btn-diesel');
+  const btnArla = document.getElementById('btn-arla');
 
   btnDiesel.addEventListener('click', () => {
     selectionState.diesel = !selectionState.diesel;
-    updateUI();
+    atualizarUIToggles();
+    salvarRascunho();
   });
 
   btnArla.addEventListener('click', () => {
     selectionState.arla = !selectionState.arla;
-    updateUI();
+    atualizarUIToggles();
+    salvarRascunho();
   });
 }
 
@@ -80,6 +186,7 @@ function configurarAccordions() {
     trigger.addEventListener('click', () => {
       const parent = trigger.parentElement;
       parent.classList.toggle('active');
+      salvarRascunho();
     });
   });
 }
@@ -126,8 +233,14 @@ function configurarEventListeners() {
   });
 
   form.addEventListener('reset', () => {
-    setTimeout(() => resetarFormulario(), 0);
+    setTimeout(() => {
+      resetarFormulario();
+      limparRascunho();
+    }, 0);
   });
+
+  form.addEventListener('input', () => salvarRascunho());
+  form.addEventListener('change', () => salvarRascunho());
 
   veiculo.addEventListener('change', (e) => {
     carregarOdometroVeiculo(e.target.value);
@@ -418,13 +531,9 @@ async function processarEnvio() {
     const valorLitro = selectionState.diesel ? parseMoeda(document.getElementById('valorLitro').value) : 0;
     const desconto = selectionState.diesel ? parseMoeda(document.getElementById('desconto').value || '0') : 0;
     const total = (litros * valorLitro) - desconto;
-    
-    const arlaLitros = selectionState.arla ? parseMoeda(document.getElementById('arla-litros').value) : 0;
-    const arlaValorLitro = selectionState.arla ? parseMoeda(document.getElementById('arla-valorLitro').value) : 0;
-    const arlaTotal = arlaLitros * arlaValorLitro;
-
     const odometroVal = parseDecimal(document.getElementById('odometro').value);
-    const uniqueId = 'REG-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+    
+    const uniqueId = 'REG-' + Date.now();
 
     const dados = {
       id: uniqueId,
@@ -436,21 +545,26 @@ async function processarEnvio() {
       litros, valorLitro, desconto, total,
       odometro: odometroVal,
       data: dataFormatada,
-      timestamp: new Date().toISOString(),
-      arla: {
-        litros: arlaLitros,
-        valorLitro: arlaValorLitro,
-        total: arlaTotal
-      }
+      timestamp: new Date().toISOString()
     };
 
+    if (selectionState.arla) {
+      const arlaL = parseMoeda(document.getElementById('arla-litros').value);
+      const arlaV = parseMoeda(document.getElementById('arla-valorLitro').value);
+      dados.arla = {
+        litros: arlaL,
+        valorLitro: arlaV,
+        total: arlaL * arlaV
+      };
+    }
+
     if (selectionState.diesel && dados.odometro < ultimoOdometro) {
-      exibirMensagem(`❌ Odômetro inválido (Mínimo: ${ultimoOdometro})`, 'error');
+      exibirMensagem(`Odômetro inválido (Mínimo: ${ultimoOdometro})`, 'error');
       isProcessing = false;
       return;
     }
 
-    mostrarModal('Gerando relatório...', 'Preparando o PDF do registro.');
+    mostrarModal('Gerando relatório...', 'Estamos preparando o seu PDF de abastecimento.');
     const pdfBlob = await gerarPDF(dados);
     
     const pdfBase64 = await new Promise(resolve => {
@@ -470,27 +584,30 @@ async function processarEnvio() {
     const url = URL.createObjectURL(pdfBlob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `registro_${dados.placa}_${Date.now()}.pdf`;
+    link.download = `abastecimento_${dados.placa}_${Date.now()}.pdf`;
     link.click();
 
     if (navigator.onLine) {
-      atualizarModal('Enviando dados...', 'Salvando informações na nuvem...');
+      atualizarModal('Enviando dados...', 'Salvando informações na nuvem.');
       const sucesso = await enviarParaAPI(registroCompleto);
       if (sucesso) {
         esconderModal();
-        exibirMensagem('✅ Registro enviado com sucesso!', 'success');
+        exibirMensagem('Registro enviado com sucesso!', 'success');
         resetarFormulario();
+        limparRascunho();
       } else {
         salvarNaFila(registroCompleto);
         esconderModal();
         exibirMensagem('⚠️ Erro no envio. Salvo na fila local.', 'warning');
         resetarFormulario();
+        limparRascunho();
       }
     } else {
       salvarNaFila(registroCompleto);
       esconderModal();
-      exibirMensagem('📴 Offline. Salvo para sincronização automática.', 'warning');
+      exibirMensagem('Offline. Salvo para sincronização automática.', 'warning');
       resetarFormulario();
+      limparRascunho();
     }
 
   } catch (erro) {
@@ -545,7 +662,7 @@ async function sincronizarFila() {
   atualizarExibicaoPendentes();
   isSyncing = false;
   
-  if (sucessos > 0) exibirMensagem(`✅ ${sucessos} itens sincronizados!`, 'success');
+  if (sucessos > 0) exibirMensagem(`${sucessos} itens sincronizados!`, 'success');
 }
 
 async function carregarDados() {
@@ -604,18 +721,29 @@ function processarImagensUpload(files) {
     const reader = new FileReader();
     reader.onload = (e) => {
       const dataUrl = e.target.result;
-      const preview = document.createElement('div');
-      preview.className = 'image-preview-item';
-      preview.innerHTML = `<img src="${dataUrl}"><button type="button" class="image-remove-btn">✕</button>`;
-      preview.querySelector('button').onclick = () => {
-        selectedImages = selectedImages.filter(img => img.file !== file);
-        preview.remove();
-      };
-      document.getElementById('image-preview-container').appendChild(preview);
-      selectedImages.push({ file, dataUrl });
+      adicionarPreviewImagem(file, dataUrl);
+      salvarRascunho();
     };
     reader.readAsDataURL(file);
   });
+}
+
+function adicionarPreviewImagem(file, dataUrl) {
+  const container = document.getElementById('image-preview-container');
+  if (!container) return;
+
+  const preview = document.createElement('div');
+  preview.className = 'image-preview-item';
+  preview.innerHTML = `<img src="${dataUrl}"><button type="button" class="image-remove-btn">✕</button>`;
+  
+  preview.querySelector('button').onclick = () => {
+    selectedImages = selectedImages.filter(img => img.file !== file);
+    preview.remove();
+    salvarRascunho();
+  };
+  
+  container.appendChild(preview);
+  selectedImages.push({ file, dataUrl });
 }
 
 function atualizarResumoCalculo() {
@@ -678,10 +806,7 @@ function resetarFormulario() {
   selectedImages = [];
   selectionState = { diesel: false, arla: false };
   
-  document.getElementById('btn-diesel').classList.remove('active');
-  document.getElementById('btn-arla').classList.remove('active');
-  document.getElementById('section-diesel').style.display = 'none';
-  document.getElementById('section-arla').style.display = 'none';
+  atualizarUIToggles();
   
   const hoje = new Date().toISOString().split('T')[0];
   document.getElementById('data-abastecimento').value = hoje;
@@ -709,3 +834,4 @@ function exibirMensagem(msg, tipo) {
 }
 
 setInterval(sincronizarFila, 60000);
+
